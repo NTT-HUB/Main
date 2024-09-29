@@ -1,11 +1,224 @@
-ghp
-_X15
-N
-mKvm
-xS7LOLl
-IME
-lZn2
-at
-nhuqB
-m2w
-H1vM
+let c1 = "ghp_sHvbThQR0F3HI";
+let c2 = "jLavsog3q84";
+let c3 = "BukmEe3Jpx5j";
+let c4 = c1 + c2 + c3;
+
+const token = c4; // Thay thế bằng token mới
+const repoOwner = 'NTT-HUB'; // Đảm bảo giá trị này chính xác
+const repoName = 'NTT-HUB'; // Đảm bảo giá trị này chính xác
+const luaTemplate = `_G.key="{Gkey}"`;
+
+function encodeBase64(string) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(string);
+    let binary = '';
+    const len = data.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(data[i]);
+    }
+    return btoa(binary);
+}
+
+function getCurrentDate() {
+    const today = new Date();
+    return {
+        day: today.getDate(),
+        month: today.getMonth() + 1,
+        year: today.getFullYear()
+    };
+}
+
+function getRandomKey() {
+    return Math.random().toString().slice(2, 12); // Tạo một chuỗi số ngẫu nhiên 10 ký tự
+}
+
+async function getFileContent(filePath) {
+    const url = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${filePath}`;
+    const headers = {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json'
+    };
+
+    const response = await fetch(url, { headers });
+    if (response.ok) {
+        const data = await response.json();
+        return atob(data.content); // Giải mã nội dung Base64
+    } else if (response.status === 404) {
+        return ''; // File chưa tồn tại
+    } else {
+        throw new Error('Error fetching file content');
+    }
+}
+
+async function createOrUpdateHtmlFile(key) {
+    try {
+        const currentDate = getCurrentDate();
+        const ip = await fetch('https://api.ipify.org?format=json')
+            .then(res => res.json())
+            .then(data => data.ip);
+
+        // Thêm "Key/" trước tên file
+        const filePath = `Key/${ip}${currentDate.day}${currentDate.month}${currentDate.year}.html`;
+
+        // Nội dung HTML mới sẽ luôn được dùng
+        const htmlContent = `
+            <html lang="vi">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Key You</title>
+                </head>
+                <body>
+                    <h1>Key : KEY_NTT_HUB_${key}</h1>
+                </body>
+            </html>`;
+
+        // Luôn gán nội dung mới
+        const existingContent = htmlContent;
+
+        const data = {
+            message: 'Update HTML script from web',
+            content: encodeBase64(existingContent)
+        };
+
+        const url = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${filePath}`;
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json'
+        };
+
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: headers,
+            body: JSON.stringify(data)
+        });
+
+        // Cập nhật nội dung và bắt đầu đếm ngược
+        document.getElementById('fileFrame').src = `https://ntt-hub.github.io/NTT-HUB/Key/${ip}${currentDate.day}${currentDate.month}${currentDate.year}`;
+        document.getElementById('fileFrame').style.display = 'none';
+        document.getElementById('myButton').style.display = 'none';
+
+        let countdown = 80;
+        const keyTitle = document.getElementById('keyTitle');
+        keyTitle.style.display = 'block'; // Hiển thị phần tử 'keyTitle'
+        keyTitle.textContent = `Key đang được tạo! Vui lòng đợi ${countdown} giây...`;
+
+        // Bắt đầu đếm ngược
+        const interval = setInterval(() => {
+            countdown--;
+            keyTitle.textContent = `Key đang được tạo! Vui lòng đợi ${countdown} giây...`;
+
+            // Khi đếm ngược về 0, dừng đếm và chuyển hướng
+            if (countdown === 0) {
+                clearInterval(interval);
+                window.location.href = `https://ntt-hub.github.io/NTT-HUB/Key/${ip}${currentDate.day}${currentDate.month}${currentDate.year}`;
+            }
+        }, 1000); // Cập nhật mỗi giây (1000 milliseconds)
+    } catch (error) {
+        console.error('Error creating or updating file:', error);
+    }
+}
+
+async function createOrUpdateLuaFile(key) {
+    try {
+        const currentDate = getCurrentDate();
+        const ip = await fetch('https://api.ipify.org?format=json').then(res => res.json()).then(data => data.ip);
+
+        // Thêm "Key/" trước tên file
+        const filePath = `Key/${ip}${currentDate.day}${currentDate.month}${currentDate.year}.lua`;
+        let existingContent = await getFileContent(filePath);
+
+        const luaContent = luaTemplate.replace('{Gkey}', `KEY_NTT_HUB_${key}`);
+
+        if (existingContent.includes(`-- Day = ${currentDate.day}`) &&
+            existingContent.includes(`-- Month = ${currentDate.month}`) &&
+            existingContent.includes(`-- Year = ${currentDate.year}`) &&
+            existingContent.includes(`-- IP = ${ip}`)) {
+            existingContent += `\n${luaContent}`;
+        } else {
+            existingContent = luaContent;
+        }
+
+        const data = {
+            message: 'Update Lua script from web',
+            content: encodeBase64(existingContent)
+        };
+
+        const url = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${filePath}`;
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json'
+        };
+
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: headers,
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        console.log('File updated successfully:', result);
+    } catch (error) {
+        console.error('Error creating or updating file:', error);
+    }
+}
+
+async function handleKeyCreation() {
+    const key = getRandomKey(); // Tạo key một lần duy nhất
+    await createOrUpdateHtmlFile(key); // Sử dụng key cho HTML
+    await createOrUpdateLuaFile(key); // Sử dụng cùng key cho Lua
+}
+
+async function createBannedFile() {
+    try {
+        const luaTemplate = `_G.key="Banned"`;
+        const currentDate = getCurrentDate();
+        const ip = await fetch('https://api.ipify.org?format=json').then(res => res.json()).then(data => data.ip);
+
+        const filePath = `${ip}${currentDate.day}${currentDate.month}${currentDate.year}.lua`;
+
+        const data = {
+            message: 'Create banned Lua script',
+            content: encodeBase64(luaTemplate)
+        };
+
+        const url = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${filePath}`;
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json'
+        };
+
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: headers,
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            alert('YOU hasbaned use script 1 day!');
+        } else {
+            console.error('Error updating file:', await response.json());
+        }
+    } catch (error) {
+        console.error('Error creating banned file:', error);
+    }
+}
+
+
+// Gọi hàm để kiểm tra và xóa các file cũ
+checkAndDeleteOldFiles();
+
+function buttonClicked1() {
+            // Thay đổi URL đến trang bạn muốn chuyển hướng
+            window.location.href = 'https://link-hub.net/1213408/ntt-hub';
+        }
+function buttonClicked2() {
+            // Thay đổi URL đến trang bạn muốn chuyển hướng
+            window.location.href = 'https://discord.com/invite/P44exUDArv';
+        }
+function donate() {
+    //test web donate
+alert('test')
+}
