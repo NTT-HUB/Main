@@ -32,12 +32,13 @@ document.getElementById("obfuscateButton").addEventListener("click", function ()
         return code.replace(/\n/g, "").replace(/\s+/g, " ");
     }
 
-    const key = randomVarName();
-    const encryptedXOR = xorEncrypt(inputCode, key);
-    const encryptedBase64 = base64Encode(encryptedXOR);
-    const varName = randomVarName();
+    const key = randomVarName(); // Tạo khóa ngẫu nhiên
+    const encryptedXOR = xorEncrypt(inputCode, key); // Mã hóa XOR
+    const encryptedBase64 = base64Encode(encryptedXOR); // Mã hóa Base64
+    const varName = randomVarName(); // Tên biến ngẫu nhiên cho dữ liệu
 
     const header = "This File Obf Make By NTT HUB"; // Dòng bảo vệ
+    const headerCheckEncrypted = xorEncrypt(header, key); // Mã hóa dòng kiểm tra
 
     const functionTable = `
         local ${varName}_defs = [[
@@ -63,11 +64,24 @@ document.getElementById("obfuscateButton").addEventListener("click", function ()
     `;
 
     const obfuscatedCode = `
-        -- ${header}
-        local headerCheck = "${header}"
-        if not v17(_G, headerCheck) then error("Header Missing or Altered!") end
+        local function decryptHeader(enc, key)
+            local output = {}
+            for num in enc:gmatch("[^,]+") do
+                v3(output, v2(v6(num) ~ key:v1((#output) % #key + 1)))
+            end
+            return table.concat(output)
+        end
 
+        -- Bảng hàm Lua
         ${functionTable}
+
+        -- Kiểm tra dòng bảo vệ
+        local own = "${headerCheckEncrypted}"
+        local key = "${key}"
+        local decodedHeader = decryptHeader(own, key)
+        assert(decodedHeader == "This File Obf Make By NTT HUB", "Header Missing or Altered!")
+
+        -- Giải mã và thực thi mã chính
         local function decrypt(${varName}, key)
             local decoded = "${encryptedBase64}"
             local numbers = {}
@@ -85,7 +99,6 @@ document.getElementById("obfuscateButton").addEventListener("click", function ()
             return table.concat(output)
         end
         local ${varName} = "${encryptedBase64}"
-        local key = "${key}"
         local code = decrypt(${varName}, key)
         v4(code)()
     `;
