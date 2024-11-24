@@ -28,17 +28,23 @@ document.getElementById("obfuscateButton").addEventListener("click", function ()
         return btoa(input);
     }
 
+    function removeComments(code) {
+        // Loại bỏ các dòng bắt đầu bằng "--"
+        return code.replace(/--.*$/gm, "").trim();
+    }
+
     function toSingleLine(code) {
         return code.replace(/\n/g, "").replace(/\s+/g, " ");
     }
 
-    const key = randomVarName(); // Tạo khóa ngẫu nhiên
-    const encryptedXOR = xorEncrypt(inputCode, key); // Mã hóa XOR
-    const encryptedBase64 = base64Encode(encryptedXOR); // Mã hóa Base64
-    const varName = randomVarName(); // Tên biến ngẫu nhiên cho dữ liệu
+    const sanitizedInput = removeComments(inputCode); // Xóa các chú thích trước khi mã hóa
+    const key = randomVarName();
+    const encryptedXOR = xorEncrypt(sanitizedInput, key);
+    const encryptedBase64 = base64Encode(encryptedXOR);
+    const varName = randomVarName();
 
-    const header = "This File Obf Make By NTT HUB"; // Dòng bảo vệ
-    const headerCheckEncrypted = xorEncrypt(header, key); // Mã hóa dòng kiểm tra
+    const header = "This File Obf Make By NTT HUB";
+    const headerCheckEncrypted = xorEncrypt(header, key);
 
     const functionTable = `
         local ${varName}_defs = [[
@@ -72,16 +78,13 @@ document.getElementById("obfuscateButton").addEventListener("click", function ()
             return table.concat(output)
         end
 
-        -- Bảng hàm Lua
         ${functionTable}
 
-        -- Kiểm tra dòng bảo vệ
         local own = "${headerCheckEncrypted}"
         local key = "${key}"
         local decodedHeader = decryptHeader(own, key)
         assert(decodedHeader == "This File Obf Make By NTT HUB", "Header Missing or Altered!")
 
-        -- Giải mã và thực thi mã chính
         local function decrypt(${varName}, key)
             local decoded = "${encryptedBase64}"
             local numbers = {}
