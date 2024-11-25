@@ -1,110 +1,76 @@
-document.getElementById("obfuscateButton").addEventListener("click", function () {
-    const inputCode = document.getElementById("inputCode").value.trim();
-    if (!inputCode) {
-        alert("Vui lòng nhập mã Lua!");
-        return;
-    }
+local function base64Decode(data)
+    local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    data = string.gsub(data, '[^' .. b .. '=]', '')
+    return (data:gsub('.', function(x)
+        if x == '=' then return '' end
+        local r, f = '', (b:find(x) - 1)
+        for i = 6, 1, -1 do r = r .. (f % 2 ^ i - f % 2 ^ (i - 1) > 0 and '1' or '0') end
+        return r
+    end):gsub('%d%d%d?%d?%d?%d?%d?%d?', function(x)
+        if #x ~= 8 then return '' end
+        local c = 0
+        for i = 1, 8 do c = c + (x:sub(i, i) == '1' and 2 ^ (8 - i) or 0) end
+        return string.char(c)
+    end))
+end
 
-    function randomVarName() {
-        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        let name = "";
-        for (let i = 0; i < 8; i++) {
-            name += chars[Math.floor(Math.random() * chars.length)];
-        }
-        return name;
-    }
+local function decryptHeader(enc, key)
+    local numbers = {}
+    for num in enc:gmatch("[^,]+") do
+        table.insert(numbers, tonumber(num))
+    end
+    local output = {}
+    for i = 1, #numbers do
+        local char = numbers[i]
+        local keyChar = key:byte((i - 1) % #key + 1)
+        output[i] = string.char(char ~ keyChar)
+    end
+    return table.concat(output)
+end
 
-    function xorEncrypt(input, key) {
-        let output = [];
-        for (let i = 0; i < input.length; i++) {
-            const charCode = input.charCodeAt(i);
-            const keyCode = key.charCodeAt(i % key.length);
-            output.push(charCode ^ keyCode);
-        }
-        return output.join(",");
-    }
+local function decrypt(encrypted, key)
+    local decoded = base64Decode(encrypted)
+    local numbers = {}
+    for i = 1, #decoded do
+        numbers[#numbers + 1] = string.byte(decoded:sub(i, i))
+    end
+    local output = {}
+    for i = 1, #numbers do
+        local char = numbers[i]
+        local keyChar = key:byte((i - 1) % #key + 1)
+        output[i] = string.char(char ~ keyChar)
+    end
+    return table.concat(output)
+end
 
-    function base64Encode(input) {
-        return btoa(input);
-    }
+local defs = [[
+v1=string.byte
+v2=string.char
+v3=table.insert
+v4=loadstring
+v5=math.floor
+v6=tonumber
+v7=type
+v8=string.sub
+v9=string.upper
+v10=string.lower
+v11=table.remove
+v12=rawset
+v13=rawget
+v14=math.ceil
+v15=math.random
+v16=math.sqrt
+v17=string.find
+]]
+loadstring(defs)()
 
-    function removeComments(code) {
-        // Loại bỏ các dòng bắt đầu bằng "--"
-        return code.replace(/--.*$/gm, "").trim();
-    }
+-- Header check
+local own = "19,37,5,16,122,8,11,2,34,109,35,1,60,110,47,15,44,40,76,33,35,110,44,58,19,109,36,54,24"
+local key = "GMlcZNbn"
+local decodedHeader = decryptHeader(own, key)
+assert(decodedHeader == "This File Obf Make By NTT HUB", "Header Missing or Altered!")
 
-    function toSingleLine(code) {
-        return code.replace(/\n/g, "").replace(/\s+/g, " ");
-    }
-
-    const sanitizedInput = removeComments(inputCode); // Xóa các chú thích trước khi mã hóa
-    const key = randomVarName();
-    const encryptedXOR = xorEncrypt(sanitizedInput, key);
-    const encryptedBase64 = base64Encode(encryptedXOR);
-    const varName = randomVarName();
-
-    const header = "This File Obf Make By NTT HUB";
-    const headerCheckEncrypted = xorEncrypt(header, key);
-
-    const functionTable = `
-        local ${varName}_defs = [[
-        v1=string.byte
-        v2=string.char
-        v3=table.insert
-        v4=loadstring
-        v5=math.floor
-        v6=tonumber
-        v7=type
-        v8=string.sub
-        v9=string.upper
-        v10=string.lower
-        v11=table.remove
-        v12=rawset
-        v13=rawget
-        v14=math.ceil
-        v15=math.random
-        v16=math.sqrt
-        v17=string.find
-        ]]
-        loadstring(${varName}_defs)()
-    `;
-
-    const obfuscatedCode = `
-        local function decryptHeader(enc, key)
-            local output = {}
-            for num in enc:gmatch("[^,]+") do
-                v3(output, v2(v6(num) ~ key:v1((#output) % #key + 1)))
-            end
-            return table.concat(output)
-        end
-
-        ${functionTable}
-
-        local own = "${headerCheckEncrypted}"
-        local key = "${key}"
-        local decodedHeader = decryptHeader(own, key)
-        assert(decodedHeader == "This File Obf Make By NTT HUB", "Header Missing or Altered!")
-
-        local function decrypt(${varName}, key)
-            local decoded = "${encryptedBase64}"
-            local numbers = {}
-            for num in decoded:gsub(".", function(c)
-                return v1(c)
-            end):gmatch("[^,]+") do
-                v3(numbers, v6(num))
-            end
-            local output = {}
-            for i = 1, #numbers do
-                local char = numbers[i]
-                local keyChar = key:v1((i - 1) % #key + 1)
-                output[i] = v2(char ~ keyChar)
-            end
-            return table.concat(output)
-        end
-        local ${varName} = "${encryptedBase64}"
-        local code = decrypt(${varName}, key)
-        v4(code)()
-    `;
-
-    document.getElementById("output").textContent = toSingleLine(obfuscatedCode);
-});
+-- Decrypt and execute
+local encrypted = "MjMsNjMsNSwxMyw0NiwxMDIsODMsOTUsMTEw"
+local code = decrypt(encrypted, key)
+loadstring(code)()
