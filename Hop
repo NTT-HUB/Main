@@ -1,71 +1,52 @@
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+
+local API_URL = "https://games.roblox.com/v1/games/"
 local PlaceID = game.PlaceId
-local AllIDs = {}
-local foundAnything = ""
-local actualHour = os.date("!*t").hour
-local Deleted = false
-local File = pcall(function()
-    AllIDs = game:GetService('HttpService'):JSONDecode(readfile("NotSameServers.json"))
-end)
-if not File then
-    table.insert(AllIDs, actualHour)
-    writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
-end
-function TPReturner()
-    local Site;
-    if foundAnything == "" then
-        Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+local CurrentJobID = game.JobId
+local AllServers = {}
+local HopDelay = 0.2  -- Chỉnh thời gian chờ giữa mỗi lần gọi API (tránh rate limit)
+
+-- Hàm lấy danh sách server
+local function GetServers(cursor)
+    local URL = API_URL .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100"
+    if cursor then URL = URL .. "&cursor=" .. cursor end
+
+    local success, response = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(URL))
+    end)
+
+    if success and response and response.data then
+        return response
     else
-        Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+        return nil
     end
-    local ID = ""
-    if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
-        foundAnything = Site.nextPageCursor
-    end
-    local num = 0;
-    for i,v in pairs(Site.data) do
-        local Possible = true
-        ID = tostring(v.id)
-        if tonumber(v.maxPlayers) > tonumber(v.playing) then
-            for _,Existing in pairs(AllIDs) do
-                if num ~= 0 then
-                    if ID == tostring(Existing) then
-                        Possible = false
-                    end
-                else
-                    if tonumber(actualHour) ~= tonumber(Existing) then
-                        local delFile = pcall(function()
-                            delfile("NotSameServers.json")
-                            AllIDs = {}
-                            table.insert(AllIDs, actualHour)
-                        end)
+end
+
+-- Hàm hop server
+local function HopServer()
+    local nextCursor = nil
+
+    repeat
+        local Servers = GetServers(nextCursor)
+        if Servers then
+            for _, server in ipairs(Servers.data) do
+                if server.id ~= CurrentJobID and server.playing < server.maxPlayers then
+                    if not table.find(AllServers, server.id) then
+                        table.insert(AllServers, server.id)
+                        print("Đang teleport đến server ID:", server.id)
+                        TeleportService:TeleportToPlaceInstance(PlaceID, server.id, Player)
+                        return
                     end
                 end
-                num = num + 1
             end
-            if Possible == true then
-                table.insert(AllIDs, ID)
-                wait()
-                pcall(function()
-                    writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
-                    wait()
-                    game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, game.Players.LocalPlayer)
-                end)
-                wait(4)
-            end
+            nextCursor = Servers.nextPageCursor
         end
-    end
+        wait(HopDelay)
+    until not nextCursor
 end
 
-function Teleport()
-    while wait() do
-        pcall(function()
-            TPReturner()
-            if foundAnything ~= "" then
-                TPReturner()
-            end
-        end)
-    end
-end
-
-
-Teleport()
+-- Gọi HopServer khi cần thiết
+HopServer()
