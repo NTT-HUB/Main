@@ -4,20 +4,31 @@ local TPS = game:GetService("TeleportService")
 local Api = "https://games.roblox.com/v1/games/"
 
 local _place,_id = game.PlaceId, game.JobId
-local _servers = Api.._place.."/servers/Public?sortOrder=Desc&limit=100"
+local _servers = Api.._place.."/servers/Public?sortOrder=Asc&limit=100"
+
+local requestCount = 0 -- Đếm số lần gọi API
+local maxRequests = 10 -- Giới hạn số request API trước khi nghỉ
+
 function ListServers(cursor)
-   local Raw = game:HttpGet(_servers .. ((cursor and "&cursor="..cursor) or ""))
-   return Http:JSONDecode(Raw)
+    if requestCount >= maxRequests then
+        print("Quá nhiều request! Chờ 30 giây rồi tiếp tục...")
+        wait(30) -- Chờ 30 giây để tránh bị giới hạn API
+        requestCount = 0 -- Reset số request
+    end
+    
+    wait(1) -- Giảm tốc độ gọi API
+    local Raw = game:HttpGet(_servers .. ((cursor and "&cursor="..cursor) or ""))
+    requestCount = requestCount + 1
+    return Http:JSONDecode(Raw)
 end
 
 local Next; repeat
-   local Servers = ListServers(Next)
-   for i,v in next, Servers.data do
-       if v.playing < v.maxPlayers and v.id ~= _id then
-           local s,r = pcall(TPS.TeleportToPlaceInstance,TPS,_place,v.id,Player)
-           if s then break end
-       end
-   end
-   
-   Next = Servers.nextPageCursor
+    local Servers = ListServers(Next)
+    for i,v in next, Servers.data do
+        if v.playing < v.maxPlayers and v.id ~= _id then
+            local s,r = pcall(TPS.TeleportToPlaceInstance,TPS,_place,v.id,Player)
+            if s then break end
+        end
+    end
+    Next = Servers.nextPageCursor
 until not Next
