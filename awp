@@ -1,0 +1,15 @@
+
+function posmouse_gui(a,b,c)
+  local VirtualInputManager = game:GetService("VirtualInputManager")
+    local clickPosition = a.AbsolutePosition + (a.AbsoluteSize / 2)
+    VirtualInputManager:SendMouseButtonEvent(clickPosition.X+b, clickPosition.Y+c, 0, true, game, 0)
+    VirtualInputManager:SendMouseButtonEvent(clickPosition.X+b, clickPosition.Y+c, 0, false, game, 0)
+end
+
+spawn(function() 
+    while task.wait() do       
+            pcall(function()
+if game.Players.LocalPlayer.PlayerGui:FindFirstChild("LoadingGUI") and game.Players.LocalPlayer.PlayerGui.LoadingGUI:FindFirstChild("Play") then
+if game.Players.LocalPlayer.PlayerGui.LoadingGUI.Play.Visible == true then
+posmouse_gui(game.Players.LocalPlayer.PlayerGui.LoadingGUI.Play,0,15)
+end end end) end end)
